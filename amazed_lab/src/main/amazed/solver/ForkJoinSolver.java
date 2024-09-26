@@ -53,6 +53,7 @@ public class ForkJoinSolver
         this.forkAfter = forkAfter;
     }
 
+    // Constructor for the sub-threads of root,
     public ForkJoinSolver(Maze maze, ForkJoinSolver root, int start){
 
         this(maze);
@@ -60,8 +61,7 @@ public class ForkJoinSolver
         this.forkAfter = root.forkAfter;
         this.visited = root.visited;
         this.predessor = root.predessor;
-        //The children will create a stack for itself to keep track which node it shall visit next.
-        this.frontier = new Stack<>();
+        //this.frontier = new Stack<>();
     }
 
     /**
@@ -84,44 +84,64 @@ public class ForkJoinSolver
 
     private List<Integer> parallelSearch()
     {
-        // one player active on the maze at start
-        int player = maze.newPlayer(start);
-        // start with start node
-        frontier.push(start);
-        // as long as not all nodes have been processed
-        while (!frontier.empty()) {
-            // get the new node to process
-            int current = frontier.pop();
-            // if current node has a goal
-            if (maze.hasGoal(current)) {
-                // move player to goal
-                maze.move(player, current);
-                // search finished: reconstruct and return path
-                return pathFromTo(start, current);
-            }
-            // if current node has not been visited yet
-            if (!visited.contains(current)) {
-                // move player to current node
-                maze.move(player, current);
-                // mark node as visited
-                visited.add(current);
-                // for every node nb adjacent to current
-                for (int nb: maze.neighbors(current)) {
-                    new ForkJoinSolver(maze, this, current).fork();
+        // make sure new starting node wasn't already visited.
+        if(!visited.contains(start)){
 
-                    // add nb to the nodes to be processed
-                    frontier.push(nb);
-                    // if nb has not been already visited,
-                    // nb can be reached from current (i.e., current is nb's predecessor)
+            int player = maze.newPlayer(start);
+            frontier.push(start);
 
+            while(!frontier.isEmpty()){
 
-                    if (!visited.contains(nb))
-                        predecessor.put(nb, current);
+                int current = frontier.pop();
+
+                // checks if current node is a goal.
+                if(maze.hasGoal(current)){
+
+                    maze.move(player, current);
+                    return pathFromTo(start, current);
                 }
 
+                // if we haven't visited current node we move the player there and add it to visited set.
+                if(!visited.contains(current)){
+                    maze.move(player, current);
+                    visited.add(current);
+
+                    for (int nb : maze.neighbors(current)){
+
+                        if(!visited.contains(nb)){
+                            predessor.put(nb, current);
+                            frontier.push(nb);
+                        }
+                    }
+
+                    //fork new threads and wait for each task to finish.
+                    ArrayList<ForkJoinSolver> tasks = spawn();
+                    for(ForkJoinSolver task : tasks){
+                        task.join();
+                    }
+
+                }
             }
         }
         // all nodes explored, no goal found
         return null;
     }
+
+    public ArrayList<ForkJoinSolver> spawn() {
+        ArrayList<ForkJoinSolver> tasks = new ArrayList<>();
+
+        Stack<Integer> frontierCopy = new Stack<>();
+        frontierCopy.addAll(frontier);  // Make a copy of the frontier
+
+        // For each neighbor in the frontier, fork a new thread
+        while (!frontierCopy.isEmpty()) {
+            int nextNode = frontierCopy.pop();
+            ForkJoinSolver task = new ForkJoinSolver(maze, this, nextNode);
+            task.fork();  // Fork new tasks
+            tasks.add(task);
+        }
+
+        return tasks;
+    }
+
 }
