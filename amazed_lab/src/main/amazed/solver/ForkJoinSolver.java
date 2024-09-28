@@ -6,6 +6,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * <code>ForkJoinSolver</code> implements a solver for
@@ -17,13 +18,13 @@ import java.util.concurrent.ForkJoinPool;
  */
 
 
-public class ForkJoinSolver
-    extends SequentialSolver
-{
+public class ForkJoinSolver extends SequentialSolver {
 
     //Synchronized HashMap and Set for our parallel solution.
     protected ConcurrentHashMap<Integer, Integer> predessor = new ConcurrentHashMap<>();
     protected ConcurrentSkipListSet<Integer> visited = new ConcurrentSkipListSet<>();
+    protected AtomicBoolean foundGoal = new AtomicBoolean(false);
+    protected ArrayList<ForkJoinSolver> solvers;
 
     /**
      * Creates a solver that searches in <code>maze</code> from the
@@ -34,6 +35,7 @@ public class ForkJoinSolver
     public ForkJoinSolver(Maze maze)
     {
         super(maze);
+        solvers = new ArrayList<ForkJoinSolver>();
     }
 
     /**
@@ -54,14 +56,12 @@ public class ForkJoinSolver
     }
 
     // Constructor for the sub-threads of root,
-    public ForkJoinSolver(Maze maze, ForkJoinSolver root, int start){
+    public ForkJoinSolver(Maze maze, ForkJoinSolver root, ConcurrentSkipListSet<Integer> visited, int start){
 
         this(maze);
         this.start = start;
-        this.forkAfter = root.forkAfter;
-        this.visited = root.visited;
+        this.visited = visited;
         this.predessor = root.predessor;
-        //this.frontier = new Stack<>();
     }
 
     /**
@@ -82,66 +82,57 @@ public class ForkJoinSolver
     }
 
 
-    private List<Integer> parallelSearch()
-    {
+    private List<Integer> parallelSearch() {
+
+        List<Integer> result = new ArrayList<>();
+
         // make sure new starting node wasn't already visited.
         if(!visited.contains(start)){
 
             int player = maze.newPlayer(start);
             frontier.push(start);
 
+
             while(!frontier.isEmpty()){
 
+                // stop searching and break the loop if goal is already found.
+                if(foundGoal.get()){
+                    break;
+                }
+
+                // pop the current node to be visited.
                 int current = frontier.pop();
 
                 // checks if current node is a goal.
                 if(maze.hasGoal(current)){
 
+                    foundGoal.set(true);
                     maze.move(player, current);
-                    return pathFromTo(start, current);
+                    result = pathFromTo(start, current);
+                    break;
                 }
 
-                // if we haven't visited current node we move the player there and add it to visited set.
-                if(!visited.contains(current)){
-                    maze.move(player, current);
-                    visited.add(current);
-
-                    for (int nb : maze.neighbors(current)){
-
-                        if(!visited.contains(nb)){
-                            predessor.put(nb, current);
-                            frontier.push(nb);
-                        }
+                if(maze.neighbors(current).size() > 2){
+                    for(Integer nb : maze.neighbors(current)){
+                        solvers.add(new ForkJoinSolver(maze, this, visited, nb));
                     }
-
-                    //fork new threads and wait for each task to finish.
-                    ArrayList<ForkJoinSolver> tasks = spawn();
-                    for(ForkJoinSolver task : tasks){
-                        task.join();
+                    for(ForkJoinSolver solver : solvers){
+                        solver.fork();
                     }
-
                 }
             }
         }
-        // all nodes explored, no goal found
-        return null;
+        return createPath(result);
     }
+    public List<Integer> createPath(List<Integer> path){
+        List<Integer> subpath = new ArrayList<>();
+        for(ForkJoinSolver solver : solvers){
 
-    public ArrayList<ForkJoinSolver> spawn() {
-        ArrayList<ForkJoinSolver> tasks = new ArrayList<>();
+            subpath.addAll(solver.join());
 
-        Stack<Integer> frontierCopy = new Stack<>();
-        frontierCopy.addAll(frontier);  // Make a copy of the frontier
-
-        // For each neighbor in the frontier, fork a new thread
-        while (!frontierCopy.isEmpty()) {
-            int nextNode = frontierCopy.pop();
-            ForkJoinSolver task = new ForkJoinSolver(maze, this, nextNode);
-            task.fork();  // Fork new tasks
-            tasks.add(task);
         }
-
-        return tasks;
+        return List.of();
     }
 
 }
+
