@@ -126,7 +126,7 @@ public class ForkJoinSolver extends SequentialSolver {
                 for (ForkJoinSolver solver : solvers) {
                     List<Integer> solverPath = solver.join();
                     if (solverPath != null) {
-                        path = pathFromTo(this.currentStart, solver.currentStart);
+                        path = pathFromTo(currentStart, predecessor.get(solver.currentStart));
                         path.addAll(solverPath);
                     }
                 }
