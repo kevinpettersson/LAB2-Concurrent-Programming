@@ -4,7 +4,6 @@ package amazed.solver;
 import amazed.maze.Maze;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -21,10 +20,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ForkJoinSolver extends SequentialSolver {
 
     //Synchronized  Set for our parallel solution.
+    //private static ConcurrentHashMap<Integer, Integer> predecessor = new ConcurrentHashMap<>();
     private static ConcurrentSkipListSet<Integer> visited = new ConcurrentSkipListSet<>(); // Initialize visited for each instance;
     private static AtomicBoolean foundGoal= new AtomicBoolean(false);
     List<ForkJoinSolver> solvers;
-    int current;
+    int currentStart;
 
     /**
      * Creates a solver that searches in <code>maze</code> from the
@@ -36,7 +36,7 @@ public class ForkJoinSolver extends SequentialSolver {
     {
         super(maze);
         solvers = new ArrayList<>();
-        current = start;
+        currentStart = start;
     }
 
     /**
@@ -62,7 +62,7 @@ public class ForkJoinSolver extends SequentialSolver {
     // Constructor for the sub-threads of root,
     public ForkJoinSolver(Maze maze,int start, int bajs){
         this(maze);
-        this.current = start;
+        this.currentStart = start;
         bajs = bajs;
         //this.predecessor = predecessor;
     }
@@ -88,26 +88,35 @@ public class ForkJoinSolver extends SequentialSolver {
     private List<Integer> parallelSearch() {
         // the path to be returned.
         List<Integer> path = null;
-        int player = maze.newPlayer(current);
-        frontier.push(current);
+        int player = maze.newPlayer(currentStart);
+        frontier.push(currentStart);
 
+        //while stack is not empty and goal hasn't been found yet
         while (!frontier.isEmpty() && !foundGoal.get()) {
+            //pop the first node in frontier and call it current
             int current = frontier.pop();
 
+            //if current is the goal, set bool to true, move player and reconstruct the path.
             if (maze.hasGoal(current)) {
                 foundGoal.set(true);
                 maze.move(player, current);
-                return pathFromTo(this.current, current);
+                return pathFromTo(this.currentStart, current);
             }
 
+            //if not visited => add to visited and move player
             if(visited.add(current)){
                 maze.move(player, current);
             }
 
+            //if more than 2 neighbors
             if(maze.neighbors(current).size() > 2){
+                //for each neighbor
                 for (Integer nb : maze.neighbors(current)) {
+                    //if not visited => add to visited
                     if (visited.add(nb)) {
+                        //put current as predecessor to neighbor
                         predecessor.put(nb, current);
+                        //create new thread, fork it and add to list of solvers
                         ForkJoinSolver solver = new ForkJoinSolver(maze, nb, 1);
                         solvers.add(solver);
                         solver.fork();
@@ -117,12 +126,13 @@ public class ForkJoinSolver extends SequentialSolver {
                 for (ForkJoinSolver solver : solvers) {
                     List<Integer> solverPath = solver.join();
                     if (solverPath != null) {
-                        path = pathFromTo(this.current, solver.current);
+                        path = pathFromTo(this.currentStart, solver.currentStart);
                         path.addAll(solverPath);
                     }
                 }
+                //else if there only was one way to go
             }else{
-                //for each of the neighbors
+                //for each neighbor
                 for(int nb: maze.neighbors(current)){
                     //if not visited
                     if(!visited.contains(nb)){
@@ -134,6 +144,21 @@ public class ForkJoinSolver extends SequentialSolver {
                 }
             }
         }
+        return path;
+    }
+
+    //Had to place it inside this file otherwise program says no goal found.
+    protected List<Integer> pathFromTo(int from, int to) {
+        List<Integer> path = new LinkedList<>();
+        Integer current = to;
+        while (current != from) {
+            path.add(current);
+            current = predecessor.get(current);
+            if (current == null)
+                return null;
+        }
+        path.add(from);
+        Collections.reverse(path);
         return path;
     }
 }

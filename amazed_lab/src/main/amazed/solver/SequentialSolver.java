@@ -125,25 +125,25 @@ public class SequentialSolver
         while (!frontier.empty()) {
             // get the new node to process
             int current = frontier.pop();
-            // if current node has a goal
+            // if currentStart node has a goal
             if (maze.hasGoal(current)) {
                 // move player to goal
                 maze.move(player, current);
                 // search finished: reconstruct and return path
                 return pathFromTo(start, current);
             }
-            // if current node has not been visited yet
+            // if currentStart node has not been visited yet
             if (!visited.contains(current)) {
-                // move player to current node
+                // move player to currentStart node
                 maze.move(player, current);
                 // mark node as visited
                 visited.add(current);
-                // for every node nb adjacent to current
+                // for every node nb adjacent to currentStart
                 for (int nb: maze.neighbors(current)) {
                     // add nb to the nodes to be processed
                     frontier.push(nb);
                     // if nb has not been already visited,
-                    // nb can be reached from current (i.e., current is nb's predecessor)
+                    // nb can be reached from currentStart (i.e., currentStart is nb's predecessor)
                     if (!visited.contains(nb))
                         predecessor.put(nb, current);
                 }
