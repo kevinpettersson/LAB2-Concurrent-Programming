@@ -20,8 +20,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ForkJoinSolver extends SequentialSolver {
 
-    //Synchronized shared(static) Set and Boolean for our parallel solution.
-    private static ConcurrentSkipListSet<Integer> visited = new ConcurrentSkipListSet<>(); // Initialize visited for each instance;
+    //Synchronized shared(static) variables Set and Boolean for our parallel solution.
+    private static ConcurrentSkipListSet<Integer> visited = new ConcurrentSkipListSet<>();
     private static AtomicBoolean foundGoal= new AtomicBoolean(false);
     private int currentStart;
 
