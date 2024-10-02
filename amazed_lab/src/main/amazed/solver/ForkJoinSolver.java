@@ -94,10 +94,13 @@ public class ForkJoinSolver extends SequentialSolver {
             //pop the first node in frontier and call it current
             int current = frontier.pop();
 
-            //if current is the goal, set bool to true, move player and reconstruct the path.
+            //if current node is the goal
             if (maze.hasGoal(current)) {
+                //set boolean to true, indicating all other threads to stop searching.
                 foundGoal.set(true);
+                //move player to that node
                 maze.move(player, current);
+                //the thread that finds the goal return the path from where it started to the goal node.
                 return pathFromTo(this.currentStart, current);
             }
 
@@ -124,9 +127,13 @@ public class ForkJoinSolver extends SequentialSolver {
                 }
                 //for each solver
                 for (ForkJoinSolver solver : solvers) {
+                    //wait for each solver to return their search result and store it into a list(if any).
                     List<Integer> solverPath = solver.join();
+                    //check if the solver found a path to the goal(null mean no path found).
                     if (solverPath != null) {
+                        //create the path from the current start node to the solvers start node.
                         path = pathFromTo(currentStart, predecessor.get(solver.currentStart));
+                        //append the path found by the solver to the newly created path.
                         path.addAll(solverPath);
                     }
                 }
