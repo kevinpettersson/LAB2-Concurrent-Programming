@@ -4,7 +4,6 @@ package amazed.solver;
 import amazed.maze.Maze;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -22,7 +21,7 @@ public class ForkJoinSolver extends SequentialSolver {
 
     //Synchronized shared(static) variables Set and Boolean for our parallel solution.
     private static ConcurrentSkipListSet<Integer> visited = new ConcurrentSkipListSet<>();
-    private static AtomicBoolean foundGoal= new AtomicBoolean(false);
+    private static AtomicBoolean foundGoal = new AtomicBoolean(false);
     private int currentStart;
 
     /**
